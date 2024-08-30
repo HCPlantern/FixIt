@@ -3,7 +3,6 @@ import Util from './util';
 class FixIt {
   constructor() {
     this.config = window.config;
-    this.data = this.config.data || [];
     this.isDark = document.body.dataset.theme === 'dark';
     this.util = new Util();
     this.newScrollTop = this.util.getScrollTop();
@@ -49,8 +48,8 @@ class FixIt {
     });
   }
 
-  initTwemoji() {
-    this.config.twemoji && twemoji.parse(document.body);
+  initTwemoji(target = document.body) {
+    this.config.twemoji && twemoji.parse(target);
   }
 
   initMenu() {
@@ -94,7 +93,7 @@ class FixIt {
         this.isDark = !this.isDark;
         window.localStorage?.setItem('theme', this.isDark ? 'dark' : 'light');
         for (let event of this.switchThemeEventSet) {
-          event();
+          event(this.isDark);
         }
       }, false);
     });
@@ -234,7 +233,7 @@ class FixIt {
                 const results = {};
                 window._index.search(query).forEach(({ item, refIndex, matches }) => {
                   let title = item.title;
-                  let content = item.content;
+                  let content = item.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
                   matches.forEach(({ indices, value, key }) => {
                     if (key === 'content') {
                       let offset = 0;
@@ -334,8 +333,8 @@ class FixIt {
     }
   }
 
-  initDetails() {
-    this.util.forEach(document.getElementsByClassName('details'), ($details) => {
+  initDetails(target = document) {
+    this.util.forEach(target.getElementsByClassName('details'), ($details) => {
       const $summary = $details.querySelector('.details-summary');
       $summary.addEventListener('click', () => {
         $details.classList.toggle('open');
@@ -345,7 +344,8 @@ class FixIt {
 
   initLightGallery() {
     if (this.config.lightgallery) {
-      lightGallery(document.getElementById('content'), {
+      this.lg && this.lg.destroy(true);
+      this.lg = lightGallery(document.getElementById('content'), {
         plugins: [lgThumbnail, lgZoom],
         selector: '.lightgallery',
         speed: 400,
@@ -362,7 +362,15 @@ class FixIt {
     }
   }
 
-  initHighlight() {
+  /**
+   * init code wrapper
+   */
+  initCodeWrapper() {
+    if (!this.config.code) {
+      this.initCopyCode();
+      return
+    }
+    // if markup.highlight.lineNumbersInTable set to false
     this.util.forEach(document.querySelectorAll('.highlight > pre.chroma'), ($preChroma) => {
       const $chroma = document.createElement('div');
       $chroma.className = $preChroma.className;
@@ -377,7 +385,13 @@ class FixIt {
       $preChroma.parentElement.replaceChild($chroma, $preChroma);
       $td.appendChild($preChroma);
     });
-    this.util.forEach(document.querySelectorAll('.highlight > .chroma'), ($chroma) => {
+    // render code header
+    this.util.forEach(document.querySelectorAll('.highlight > .chroma:not([data-init])'), ($chroma) => {
+      $chroma.dataset.init = 'true';
+      if ($chroma.parentElement.classList.contains('no-header')) {
+        this.initCopyCode($chroma);
+        return;
+      }
       const $codeElements = $chroma.querySelectorAll('pre.chroma > code');
       if ($codeElements.length) {
         const $code = $codeElements[$codeElements.length - 1];
@@ -386,8 +400,13 @@ class FixIt {
         // code title
         const $title = document.createElement('span');
         $title.classList.add('code-title');
-        const hlAttrs = this.data[$chroma.parentNode.id];
-        $title.insertAdjacentHTML('afterbegin', `<i class="arrow fa-solid fa-chevron-right fa-fw" aria-hidden="true"></i><span class="title-inner">${hlAttrs?.title ?? ''}</span>`);
+        // insert code title inner
+        $title.insertAdjacentHTML(
+          'afterbegin',
+          $chroma.parentNode.title
+            ? `<i class="arrow fa-solid fa-chevron-right fa-fw" aria-hidden="true"></i><span class="title-inner">${$chroma.parentNode.title}</span>`
+            : '<i class="arrow fa-solid fa-chevron-right fa-fw" aria-hidden="true"></i>'
+        );
         $title.addEventListener('click', () => {
           $chroma.classList.toggle('open');
         }, false);
@@ -404,20 +423,20 @@ class FixIt {
         if (this.config.code.editable) {
           const $edit = document.createElement('span');
           $edit.classList.add('edit');
-          $edit.insertAdjacentHTML('afterbegin', `<i class="fa-solid fa-key fa-fw" title="${this.config.code.editUnLockTitle}" aria-hidden="true"></i>`);
+          $edit.insertAdjacentHTML('afterbegin', `<i class="fa-solid fa-pen-to-square fa-fw" title="${this.config.code.editUnLockTitle}" aria-hidden="true"></i>`);
           $edit.addEventListener('click', () => {
-            const $iconKey = $edit.querySelector('.fa-key');
+            const $iconKey = $edit.querySelector('.fa-pen-to-square');
             const $iconLock = $edit.querySelector('.fa-lock');
             const $preChromas = $edit.parentElement.parentElement.querySelectorAll('pre.chroma');
             const $preChroma = $preChromas.length === 2 ? $preChromas[1] : $preChromas[0];
             if ($iconKey) {
               $iconKey.classList.add('fa-lock');
-              $iconKey.classList.remove('fa-key');
+              $iconKey.classList.remove('fa-pen-to-square');
               $iconKey.title = this.config.code.editLockTitle;
               $preChroma.setAttribute('contenteditable', true);
               $preChroma.focus();
             } else {
-              $iconLock.classList.add('fa-key');
+              $iconLock.classList.add('fa-pen-to-square');
               $iconLock.classList.remove('fa-lock');
               $iconLock.title = this.config.code.editUnLockTitle;
               $preChroma.setAttribute('contenteditable', false);
@@ -432,8 +451,15 @@ class FixIt {
           $copy.insertAdjacentHTML('afterbegin', '<i class="fa-regular fa-copy fa-fw" aria-hidden="true"></i>');
           $copy.classList.add('copy');
           // remove the leading and trailing whitespace of the code string
-          const code = $code.innerText.trim();
-          if (this.config.code.maxShownLines < 0 || code.split('\n').length < this.config.code.maxShownLines + 2) {
+          let code = $code.innerText.trim();
+          // in the details element, the code string cannot be gotten directly.
+          if ($chroma.closest('details') !== null) {
+            const _tempEl = document.createElement('div');
+            _tempEl.appendChild($code.cloneNode(true));
+            code = _tempEl.innerText.trim();
+          }
+          const forceOpen = $chroma.parentElement.dataset.open ? JSON.parse($chroma.parentElement.dataset.open) : void 0;
+          if (forceOpen ?? (this.config.code.maxShownLines < 0 || code.split('\n').length < this.config.code.maxShownLines + 2)) {
             $chroma.classList.add('open');
           }
           $copy.title = this.config.code.copyTitle;
@@ -451,8 +477,8 @@ class FixIt {
     });
   }
 
-  initTable() {
-    this.util.forEach(document.querySelectorAll('.content table'), ($table) => {
+  initTable(target = document) {
+    this.util.forEach(target.querySelectorAll('.content table'), ($table) => {
       const $wrapper = document.createElement('div');
       $wrapper.className = 'table-wrapper';
       $table.parentElement.replaceChild($wrapper, $table);
@@ -461,18 +487,21 @@ class FixIt {
   }
 
   /**
+   * init simple copy code when there is no code header
+   * https://github.com/github/clipboard-copy-element
+   * @param {ELement} singleCode single code block
+   */
+  initCopyCode(singleCode) {
+    // TODO
+  }
+
+  /**
    * init table of contents
    */
   initToc() {
-    let $tocCore = document.getElementById('TableOfContents');
+    const $tocCore = document.getElementById('TableOfContents');
     if ($tocCore === null) {
       return;
-    }
-    // It's a dirty hack to fix the bug of APlayer, see https://github.com/hugo-fixit/FixIt/issues/292
-    if (typeof APlayer === 'function') {
-      const $newTocCore = $tocCore.cloneNode(true);
-      $tocCore.parentElement.replaceChild($newTocCore, $tocCore);
-      $tocCore = $newTocCore;
     }
     if (document.getElementById('toc-static').dataset.kept === 'true' || this.util.isTocStatic()) {
       const $tocContentStatic = document.getElementById('toc-content-static');
@@ -544,30 +573,59 @@ class FixIt {
     }, false);
   }
 
-  initMath() {
-    if (this.config.math) {
-      renderMathInElement(document.body, this.config.math);
+  /**
+   * It's a dirty hack to fix the bug of APlayer and smoothScroll. 
+   * see https://github.com/hugo-fixit/FixIt/issues/292
+   */
+  fixTocScroll() {
+    if (typeof APlayer === 'function') {
+      // remove APlayer click event listener of the toc link
+      let $tocCore = document.getElementById('TableOfContents');
+      if ($tocCore) {
+        const $newTocCore = $tocCore.cloneNode(true);
+        $tocCore.parentElement.replaceChild($newTocCore, $tocCore);
+        $tocCore = $newTocCore;
+      }
+      // remove APlayer click event listener of the heading mark
+      this.util.forEach(document.querySelectorAll('.heading-mark'), ($headingMark) => {
+        const $newHeadingMark = $headingMark.cloneNode(true);
+        $headingMark.parentElement.replaceChild($newHeadingMark, $headingMark);
+      });
     }
   }
 
-  switchMermaidTheme(theme) {
-    const $mermaidElements = document.getElementsByClassName('mermaid');
-    if ($mermaidElements.length) {
-      // TODO perf
-      const themes = this.config.mermaid.themes ?? ['default', 'dark', 'neutral'];
-      mermaid.initialize({ startOnLoad: false, theme: theme ?? (this.isDark ? themes[1] : themes[0]), securityLevel: 'loose' });
-      this.util.forEach($mermaidElements, $mermaid => {
-        mermaid.render('svg-' + $mermaid.id, this.data[$mermaid.id], svgCode => {
-          $mermaid.innerHTML = svgCode;
-        }, $mermaid);
-      });
+  initMath(target = document.body) {
+    if (this.config.math) {
+      renderMathInElement(target, this.config.math);
     }
-  };
+  }
 
   initMermaid() {
-    this.switchMermaidTheme();
-    this.switchThemeEventSet.add(() => { this.switchMermaidTheme(); });
-    this.beforeprintEventSet.add(() => { this.switchMermaidTheme('neutral'); });
+    if (!window.mermaid?.initialize) {
+      return;
+    }
+    const _initializeAndRun = () => {
+      const themes = window.mermaid.themes ?? ['default', 'dark'];
+      window.mermaid.initialize({
+        securityLevel: 'loose',
+        startOnLoad: false,
+        theme: this.isDark ? themes[1] : themes[0],
+      });
+      window.mermaid.run()
+    }
+    _initializeAndRun()
+    this.switchThemeEventSet.add(() => {
+      // Reinitialize and run mermaid when theme changes.
+      this.util.forEach(document.querySelectorAll('.mermaid[data-processed]'), ($mermaid) => {
+        $mermaid.dataset.processed = ''
+        $mermaid.innerHTML = ''
+        $mermaid.appendChild($mermaid.nextElementSibling.content.cloneNode(true))
+      })
+      _initializeAndRun()
+    });
+    this.beforeprintEventSet.add(() => { 
+      // Set the theme to neutral when printing.
+    });
   }
 
   initEcharts() {
@@ -582,11 +640,16 @@ class FixIt {
         this._echartsArr[i].dispose();
       }
       this._echartsArr = [];
+      const stagingDOM = this.util.getStagingDOM()
       this.util.forEach(document.getElementsByClassName('echarts'), ($echarts) => {
-        const chart = echarts.init($echarts, this.isDark ? 'dark' : 'light', { renderer: 'svg' });
-        chart.setOption(JSON.parse(this.data[$echarts.id]));
-        this._echartsArr.push(chart);
+        if ($echarts.nextElementSibling.tagName === 'TEMPLATE') {
+          const chart = echarts.init($echarts, this.isDark ? 'dark' : 'light', { renderer: 'svg' });
+          stagingDOM.stage($echarts.nextElementSibling.content.cloneNode(true));
+          chart.setOption(stagingDOM.contentAsJson());
+          this._echartsArr.push(chart);
+        }
       });
+      stagingDOM.destroy();
     });
     this.switchThemeEventSet.add(this._echartsOnSwitchTheme);
     this._echartsOnSwitchTheme();
@@ -600,11 +663,13 @@ class FixIt {
 
   initMapbox() {
     if (this.config.mapbox) {
-      mapboxgl.accessToken = this.config.mapbox.accessToken;
-      mapboxgl.setRTLTextPlugin(this.config.mapbox.RTLTextPlugin);
-      this._mapboxArr = this._mapboxArr || [];
-      this.util.forEach(document.getElementsByClassName('mapbox'), ($mapbox) => {
-        const { lng, lat, zoom, lightStyle, darkStyle, marked, navigation, geolocate, scale, fullscreen } = this.data[$mapbox.id];
+      if (!mapboxgl.accessToken) {
+        mapboxgl.accessToken = this.config.mapbox.accessToken;
+        mapboxgl.setRTLTextPlugin(this.config.mapbox.RTLTextPlugin);
+        this._mapboxArr = this._mapboxArr || [];
+      }
+      this.util.forEach(document.querySelectorAll('.mapbox:empty'), ($mapbox) => {
+        const { lng, lat, zoom, lightStyle, darkStyle, marked, navigation, geolocate, scale, fullscreen } = JSON.parse($mapbox.dataset.options);
         const mapbox = new mapboxgl.Map({
           container: $mapbox,
           center: [lng, lat],
@@ -643,7 +708,7 @@ class FixIt {
       this._mapboxOnSwitchTheme = this._mapboxOnSwitchTheme || (() => {
         this.util.forEach(this._mapboxArr, (mapbox) => {
           const $mapbox = mapbox.getContainer();
-          const { lightStyle, darkStyle } = this.data[$mapbox.id];
+          const { lightStyle, darkStyle } = JSON.parse($mapbox.dataset.options);
           mapbox.setStyle(this.isDark ? darkStyle : lightStyle);
           mapbox.addControl(new MapboxLanguage());
         });
@@ -652,31 +717,52 @@ class FixIt {
     }
   }
 
-  initTypeit() {
+  initTypeit(target = document) {
     if (this.config.typeit) {
       const typeitConfig = this.config.typeit;
       const speed = typeitConfig.speed || 100;
       const cursorSpeed = typeitConfig.cursorSpeed || 1000;
       const cursorChar = typeitConfig.cursorChar || '|';
       const loop = typeitConfig.loop ?? false;
-      Object.values(typeitConfig.data).forEach((group) => {
+      // divide them into different groups according to the data-group attribute value of the element
+      // results in an object like {group1: [ele1, ele2], group2: [ele3, ele4]}
+      const typeitElements = target.querySelectorAll('.typeit')
+      const groupMap = Array.from(typeitElements).reduce((acc, ele) => {
+        const group = ele.dataset.group || ele.id || Math.random().toString(36).substring(2);
+        acc[group] = acc[group] || [];
+        acc[group].push(ele);
+        return acc;
+      }, {});
+      const stagingDOM = this.util.getStagingDOM()
+
+      Object.values(groupMap).forEach((group) => {
         const typeone = (i) => {
-          const id = group[i];
-          const shortcodeLoop = document.querySelector(`#${id}`).parentElement.dataset.loop;
-          const instance = new TypeIt(`#${id}`, {
-            strings: this.data[id],
-            speed: speed,
+          const typeitElement = group[i];
+          const singleData = typeitElement.dataset;
+          stagingDOM.stage(typeitElement.querySelector('template').content.cloneNode(true));
+          // for shortcodes usage
+          let targetEle = typeitElement.firstElementChild
+          // for system elements usage
+          if (typeitElement.firstElementChild.tagName === 'TEMPLATE') {
+            typeitElement.innerHTML = '';
+            targetEle = typeitElement
+          }
+          // create a new instance of TypeIt for each element
+          const instance = new TypeIt(targetEle, {
+            strings: stagingDOM.$el.querySelector('pre')?.innerHTML || stagingDOM.contentAsHtml(),
+            speed: Number(singleData.speed) >= 0 ? Number(singleData.speed) : speed,
             lifeLike: true,
-            cursorSpeed: cursorSpeed,
-            cursorChar: cursorChar,
+            cursorSpeed: Number(singleData.cursorSpeed) >= 0 ? Number(singleData.cursorSpeed) : cursorSpeed,
+            cursorChar: singleData.cursorChar || cursorChar,
             waitUntilVisible: true,
-            loop: shortcodeLoop ? JSON.parse(shortcodeLoop) : loop,
+            loop: singleData.loop ? singleData.loop === 'true' : loop,
             afterComplete: () => {
+              const duration = Number(singleData.duration ?? vtypeitConfig.duration);
               if (i === group.length - 1) {
-                if (typeitConfig.duration >= 0) {
+                if (duration >= 0) {
                   window.setTimeout(() => {
                     instance.destroy();
-                  }, typeitConfig.duration);
+                  }, duration);
                 }
                 return;
               }
@@ -687,6 +773,7 @@ class FixIt {
         };
         typeone(0);
       });
+      stagingDOM.destroy();
     }
   }
 
@@ -813,7 +900,7 @@ class FixIt {
       const giscusConfig = this.config.comment.giscus;
       this._giscusOnSwitchTheme = this._giscusOnSwitchTheme || (() => {
         const message = { setConfig: { theme: this.isDark ? giscusConfig.darkTheme : giscusConfig.lightTheme }};
-        document.querySelector('.giscus-frame')?.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        document.querySelector('.giscus-frame')?.contentWindow.postMessage({ giscus: message }, giscusConfig.origin);
       });
       this.switchThemeEventSet.add(this._giscusOnSwitchTheme);
       this.giscus2parentMsg = window.addEventListener('message', (event) => {
@@ -828,7 +915,7 @@ class FixIt {
   }
 
   initCookieconsent() {
-    this.config.cookieconsent && cookieconsent.initialise(this.config.cookieconsent);
+    this.config.cookieconsent && window.cookieconsent?.initialise(this.config.cookieconsent);
   }
 
   getSiteTime = () => {
@@ -919,19 +1006,36 @@ class FixIt {
         this.initTwemoji();
         this.initDetails();
         this.initLightGallery();
-        this.initHighlight();
+        this.initCodeWrapper();
         this.initTable();
         this.initMath();
         this.initMermaid();
         this.initEcharts();
         this.initTypeit();
         this.initMapbox();
-        this.util.forEach(document.querySelectorAll('.encrypted-hidden'), ($element) => {
-          $element.classList.replace('encrypted-hidden', 'decrypted-shown');
-        });
         this.initToc();
         this.initTocListener();
         this.initPangu();
+        this.fixTocScroll();
+        this.util.forEach(document.querySelectorAll('.encrypted-hidden'), ($element) => {
+          $element.classList.replace('encrypted-hidden', 'decrypted-shown');
+        });
+      },
+      partialDecrypted: ($content) => {
+        this.initTwemoji($content);
+        this.initDetails($content);
+        this.initLightGallery();
+        this.initCodeWrapper();
+        this.initTable($content);
+        this.initMath($content);
+        this.initMermaid();
+        this.initEcharts();
+        this.initTypeit($content);
+        this.initMapbox();
+        this.initPangu();
+        this.util.forEach($content.querySelectorAll('.encrypted-hidden'), ($element) => {
+          $element.classList.replace('encrypted-hidden', 'decrypted-shown');
+        });
       },
       reset: () => {
         this.util.forEach(document.querySelectorAll('.decrypted-shown'), ($element) => {
@@ -939,39 +1043,7 @@ class FixIt {
         });
       }
     });
-    if (this.config.encryption?.shortcode) {
-      this.decryptor.addEventListener('decrypted', () => {
-        this.decryptor.initShortcodes();
-      })
-      this.decryptor.initShortcodes();
-    }
-    this.config.encryption?.all && this.decryptor.init();
-  }
-
-  initMDevtools() {
-    const type = this.config?.mDevtools;
-    if (typeof window.orientation === 'undefined') {
-      return;
-    }
-    if (type === 'vConsole') {
-      const vConsole = new VConsole({
-        target: '.widgets',
-        theme: this.isDark ? 'dark' : 'light'
-      });
-      this._vConsoleOnSwitchTheme = this._vConsoleOnSwitchTheme || (() => {
-        vConsole.setOption('theme', this.isDark ? 'dark' : 'light');
-      });
-      this.switchThemeEventSet.add(this._vConsoleOnSwitchTheme);
-    }
-    if(type === 'eruda') {
-      eruda.init({
-        defaults: { theme: this.isDark ? 'Dark' : 'Light' }
-      });
-      this._erudaOnSwitchTheme = this._erudaOnSwitchTheme || (() => {
-        eruda.util.evalCss.setTheme(this.isDark ? 'Dark' : 'Light');
-      });
-      this.switchThemeEventSet.add(this._erudaOnSwitchTheme);
-    }
+    this.decryptor.init(this.config.encryption);
   }
 
   initAutoMark() {
@@ -979,9 +1051,9 @@ class FixIt {
       return;
     }
     window.addEventListener('beforeunload', () => {
-      window.localStorage?.setItem(`fixit-bookmark/#${location.pathname}`, this.util.getScrollTop());
+      window.sessionStorage?.setItem(`fixit-bookmark/#${location.pathname}`, this.util.getScrollTop());
     });
-    const scrollTop = Number(window.localStorage?.getItem(`fixit-bookmark/#${location.pathname}`));
+    const scrollTop = Number(window.sessionStorage?.getItem(`fixit-bookmark/#${location.pathname}`));
     // If the page opens with a specific hash, just jump out
     if (scrollTop && location.hash === '') {
       window.scrollTo({ 
@@ -1027,7 +1099,6 @@ class FixIt {
     const $fixedButtons = document.querySelector('.fixed-buttons');
     const $backToTop = document.querySelector('.back-to-top');
     const $readingProgressBar = document.querySelector('.reading-progress-bar');
-    let scrollTimer = void 0;
     if (document.body.dataset.headerDesktop === 'auto') {
       $headers.push(document.getElementById('header-desktop'));
     }
@@ -1046,12 +1117,6 @@ class FixIt {
       const $mask = document.getElementById('mask');
       this.newScrollTop = this.util.getScrollTop();
       const scroll = this.newScrollTop - this.oldScrollTop;
-      // body scrollbar style
-      document.body.toggleAttribute('data-scroll', true);
-      scrollTimer && window.clearTimeout(scrollTimer);
-      scrollTimer = window.setTimeout(() => {
-        document.body.toggleAttribute('data-scroll');
-      }, 500);
       // header animation
       this.util.forEach($headers, ($header) => {
         if (scroll > ACCURACY) {
@@ -1101,7 +1166,6 @@ class FixIt {
             event();
           }
           this.initToc();
-          this.switchMermaidTheme();
           this.initSearch();
 
           const isMobile = this.util.isMobile()
@@ -1142,11 +1206,12 @@ class FixIt {
     try {
       if (this.config.encryption) {
         this.initFixItDecryptor();
-      } else if (!this.config.encryption?.all) {
+      }
+      if (!this.config.encryption?.all) {
         this.initTwemoji();
         this.initDetails();
         this.initLightGallery();
-        this.initHighlight();
+        this.initCodeWrapper();
         this.initTable();
         this.initMath();
         this.initMermaid();
@@ -1165,7 +1230,6 @@ class FixIt {
       this.initSiteTime();
       this.initServiceWorker();
       this.initWatermark();
-      this.initMDevtools();
       this.initAutoMark();
       this.initReward();
 
@@ -1174,6 +1238,7 @@ class FixIt {
         if (!this.config.encryption?.all) {
           this.initToc();
           this.initTocListener();
+          this.fixTocScroll();
         }
         this.onScroll();
         this.onResize();

@@ -7,7 +7,7 @@
 [init]
 configurationError = ""
 compatibilityError = ""
-RCVersionWarn = ""
+devVersionWarn = ""
 devEnvWarn = ""
 quicklyUpgrade = ""
 # === init ===
@@ -129,6 +129,7 @@ expirationReminder = "Овај чланак је последњи пут ажу�
 encryptedAbstract = ""
 encryptedMessage = ""
 password = "Паролица"
+enterBtn = ""
 encryptyAgain = ""
 relatedContent = "Повезани садржај"
 
@@ -171,6 +172,15 @@ other = "Оффлине"
 [offlineText]
 other = "Нисте повезани на Интернет, биће доступне само кеширане странице."
 # === offline ===
+
+# === GitHub Alert ===
+[alert]
+note = ""
+tip = ""
+important = ""
+warning = ""
+caution = ""
+# === GitHub Alert ===
 
 # === shortcodes/admonition.html ===
 [admonition]

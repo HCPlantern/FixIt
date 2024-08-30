@@ -7,7 +7,7 @@
 [init]
 configurationError = ""
 compatibilityError = ""
-RCVersionWarn = ""
+devVersionWarn = ""
 devEnvWarn = ""
 quicklyUpgrade = ""
 # === init ===
@@ -129,6 +129,7 @@ expirationReminder = "Dieser Artikel wurde zuletzt auf {{ .Date }} aktualisiert,
 encryptedAbstract = ""
 encryptedMessage = ""
 password = "Passwort"
+enterBtn = ""
 encryptyAgain = ""
 relatedContent = "Ähnliche Inhalte"
 
@@ -171,6 +172,15 @@ other = "Offline"
 [offlineText]
 other = "Sie sind nicht mit dem Internet verbunden, es stehen nur zwischengespeicherte Seiten zur Verfügung."
 # === offline ===
+
+# === GitHub Alert ===
+[alert]
+note = ""
+tip = ""
+important = ""
+warning = ""
+caution = ""
+# === GitHub Alert ===
 
 # === shortcodes/admonition.html ===
 [admonition]

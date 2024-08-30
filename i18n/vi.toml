@@ -6,7 +6,7 @@
 [init]
 configurationError = ""
 compatibilityError = ""
-RCVersionWarn = ""
+devVersionWarn = ""
 devEnvWarn = ""
 quicklyUpgrade = ""
 # === init ===
@@ -128,6 +128,7 @@ expirationReminder = "Bài viết này được cập nhật lần cuối vào {
 encryptedAbstract = ""
 encryptedMessage = ""
 password = "Mật khẩu"
+enterBtn = ""
 encryptyAgain = ""
 relatedContent = "Nội dung liên quan"
 
@@ -170,6 +171,15 @@ other = "ngoại tuyến"
 [offlineText]
 other = "Bạn chưa kết nối với Internet, chỉ các trang được lưu trong bộ nhớ cache sẽ khả dụng."
 # === offline ===
+
+# === GitHub Alert ===
+[alert]
+note = ""
+tip = ""
+important = ""
+warning = ""
+caution = ""
+# === GitHub Alert ===
 
 # === shortcodes/admonition.html ===
 [admonition]

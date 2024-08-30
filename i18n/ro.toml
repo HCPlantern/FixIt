@@ -7,7 +7,7 @@
 [init]
 configurationError = ""
 compatibilityError = ""
-RCVersionWarn = ""
+devVersionWarn = ""
 devEnvWarn = ""
 quicklyUpgrade = ""
 # === init ===
@@ -129,6 +129,7 @@ expirationReminder = "Acest articol a fost actualizat ultima dată pe {{ .Date }
 encryptedAbstract = ""
 encryptedMessage = ""
 password = "Parolă"
+enterBtn = ""
 encryptyAgain = ""
 relatedContent = "Conținut înrudit"
 
@@ -171,6 +172,15 @@ other = "Deconectat"
 [offlineText]
 other = "Nu sunteți conectat la Internet, vor fi disponibile doar paginile stocate în cache."
 # === offline ===
+
+# === GitHub Alert ===
+[alert]
+note = ""
+tip = ""
+important = ""
+warning = ""
+caution = ""
+# === GitHub Alert ===
 
 # === shortcodes/admonition.html ===
 [admonition]

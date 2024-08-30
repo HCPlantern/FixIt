@@ -7,7 +7,7 @@
 [init]
 configurationError = ""
 compatibilityError = ""
-RCVersionWarn = ""
+devVersionWarn = ""
 devEnvWarn = ""
 quicklyUpgrade = ""
 # === init ===
@@ -129,6 +129,7 @@ expirationReminder = "Эта статья последний раз обновл
 encryptedAbstract = ""
 encryptedMessage = ""
 password = "арготизм"
+enterBtn = ""
 encryptyAgain = ""
 relatedContent = "Связанный контент"
 
@@ -171,6 +172,15 @@ other = "Не в сети"
 [offlineText]
 other = "Вы не подключены к интернету, будут доступны только кешированные страницы."
 # === offline ===
+
+# === GitHub Alert ===
+[alert]
+note = ""
+tip = ""
+important = ""
+warning = ""
+caution = ""
+# === GitHub Alert ===
 
 # === shortcodes/admonition.html ===
 [admonition]

@@ -1,6 +1,6 @@
 {
   "name": "fixit-src",
-  "version": "0.3.2",
+  "version": "0.3.10",
   "private": true,
   "description": "FixIt theme source files",
   "keywords": [
@@ -18,12 +18,19 @@
   },
   "license": "MIT",
   "author": "Lruihao (https://lruihao.cn)",
+  "type": "module",
   "scripts": {
-    "build": "hugo --source=demo --themesDir ../.. --theme $PWD --gc --minify  --logLevel info",
-    "server": "hugo server --source=demo --themesDir ../.. --theme $PWD -D --disableFastRender --navigateToChanged --ignoreCache --bind 0.0.0.0",
+    "build": "hugo --source=demo --themesDir ../.. --theme $PWD --gc --minify --logLevel info",
+    "server": "hugo server --source=demo --themesDir ../.. --theme $PWD -D --disableFastRender --navigateToChanged --ignoreCache",
     "server:production": "npm run server -- -e production",
-    "server:docs": "hugo server --source=../fixit-docs -D --disableFastRender --navigateToChanged --ignoreCache --bind 0.0.0.0",
-    "version": "sed -i '' \"s/v$npm_package_version-RC/v$npm_package_version/g\" layouts/partials/init/index.html && git add .",
-    "postversion": "git push && git push --tags"
+    "server:docs": "hugo server --source=../fixit-docs -D --disableFastRender --navigateToChanged --ignoreCache",
+    "version": "node build/update-version.js --stage version",
+    "postversion": "git push && git push --tags && npm run release",
+    "release": "auto-changelog --config build/changelog/config.json",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "auto-changelog": "^2.4.0",
+    "husky": "^9.1.4"
   }
 }

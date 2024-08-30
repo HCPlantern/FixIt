@@ -7,7 +7,7 @@
 [init]
 configurationError = ""
 compatibilityError = ""
-RCVersionWarn = ""
+devVersionWarn = ""
 devEnvWarn = ""
 quicklyUpgrade = ""
 # === init ===
@@ -129,6 +129,7 @@ expirationReminder = "Questo articolo è stato aggiornato l'ultima volta il {{ .
 encryptedAbstract = ""
 encryptedMessage = ""
 password = "Password"
+enterBtn = ""
 encryptyAgain = ""
 relatedContent = "Contenuti correlati"
 
@@ -171,6 +172,15 @@ other = "disconnesso"
 [offlineText]
 other = "Non sei connesso a Internet, saranno disponibili solo le pagine memorizzate nella cache."
 # === offline ===
+
+# === GitHub Alert ===
+[alert]
+note = ""
+tip = ""
+important = ""
+warning = ""
+caution = ""
+# === GitHub Alert ===
 
 # === shortcodes/admonition.html ===
 [admonition]
